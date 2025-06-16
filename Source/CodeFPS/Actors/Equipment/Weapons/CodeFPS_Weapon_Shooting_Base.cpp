@@ -4,6 +4,7 @@
 #include "CodeFPS_Weapon_Shooting_Base.h"
 #include "../../../GameCodeTypes.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "../../../Characters/CodeFPS_Character_Base.h"
 #include "Net/UnrealNetwork.h"
 
@@ -81,7 +82,7 @@ FVector ACodeFPS_Weapon_Shooting_Base::GetTraceHitLocation()
 	{
 		GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Blue, FString::Printf(TEXT("LineTrace Hit with %s"), *Hit.Actor.Get()->GetName()));
 	}
-	return FVector();
+	return Hit.Location;
 }
 
 void ACodeFPS_Weapon_Shooting_Base::Server_Attack_Implementation(ACodeFPS_Character_Base* Attacker)
@@ -91,11 +92,10 @@ void ACodeFPS_Weapon_Shooting_Base::Server_Attack_Implementation(ACodeFPS_Charac
 		FActorSpawnParameters spawnParameters;
 
 		spawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		ACodeFPS_Proj_Base* bullet = GetWorld()->SpawnActor<ACodeFPS_Proj_Base>(bulletClass, WeaponBarrel->GetComponentLocation(), WeaponBarrel->GetComponentRotation(), spawnParameters); //Straightly from gun or up to screen center?
-		bullet->SetDamage(Damage);
+		FRotator AtTargetRotation = UKismetMathLibrary::FindLookAtRotation(WeaponBarrel->GetComponentLocation(), GetTraceHitLocation());
+		ACodeFPS_Proj_Base* bullet = GetWorld()->SpawnActor<ACodeFPS_Proj_Base>(bulletClass, WeaponBarrel->GetComponentLocation(), AtTargetRotation, spawnParameters);
 		bullet->SetShooter(Attacker);
 		AmmoInClipCurrent--;
-		GetTraceHitLocation();
 		Multicast_Attack();
 	}
 	else
