@@ -19,6 +19,8 @@ void UAbilityComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
+	SetOwnerCharacter();
+	
 }
 
 
