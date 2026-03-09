@@ -97,5 +97,5 @@ protected:
 	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	//ACodeFPS_Proj_Base* bullet;
 	UFUNCTION()
-		FVector GetTraceHitLocation();
+		FVector GetTraceHitLocation(FName Socket);
 };

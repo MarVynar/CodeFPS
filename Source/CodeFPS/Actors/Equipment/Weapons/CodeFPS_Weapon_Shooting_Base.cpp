@@ -5,7 +5,9 @@
 #include "../../../GameCodeTypes.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "../../../Characters/CodeFPS_Character_Base.h"
+//#include "../../../Characters/CodeFPS_Character_Base.h"
+#include "../../../Characters/Humanoid/Players/CodeFPS_Char_Player.h"
+#include "Camera/CameraComponent.h"
 #include "Net/UnrealNetwork.h"
 
 ACodeFPS_Weapon_Shooting_Base::ACodeFPS_Weapon_Shooting_Base()
@@ -59,7 +61,7 @@ void ACodeFPS_Weapon_Shooting_Base::MC_Multiprint(int i, FString string) //_Impl
 	GEngine->AddOnScreenDebugMessage(i, 9, FColor::Yellow, string);
 }
 
-FVector ACodeFPS_Weapon_Shooting_Base::GetTraceHitLocation()
+FVector ACodeFPS_Weapon_Shooting_Base::GetTraceHitLocation(FName Socket)
 {
 	FHitResult Hit;
 
@@ -69,15 +71,35 @@ FVector ACodeFPS_Weapon_Shooting_Base::GetTraceHitLocation()
 
 	FCollisionResponseParams CollisionResponseParams;
 
-	FVector StartLocation = OwnerCharacter->GetHeadLocation();
-	GetWorld()->LineTraceSingleByChannel(
-		Hit,
-		StartLocation,
-		StartLocation + OwnerCharacter->GetActorRotation().Vector() * 50000.0f,
-		ECollisionChannel::ECC_Visibility,
-		CollisionQueryParams,
-		CollisionResponseParams
-	);
+	//FVector StartLocation = OwnerCharacter->GetHeadLocation();
+	FVector StartLocation = OwnerCharacter->GetMesh()->GetSocketLocation(Socket);
+	GEngine->AddOnScreenDebugMessage(5, 1.0f, FColor::Purple, FString::Printf(TEXT("HasHead %d"), OwnerCharacter->GetMesh()->DoesSocketExist(HumanoidHeadSocket)));
+		
+	ACodeFPS_Char_Player* OwnerPlayer = Cast< ACodeFPS_Char_Player>(OwnerCharacter);
+	if (OwnerPlayer != nullptr)
+	{
+		GetWorld()->LineTraceSingleByChannel(
+			Hit,
+			OwnerPlayer->GetFirstPersonCameraComponent()->GetComponentLocation(),
+			OwnerPlayer->GetFirstPersonCameraComponent()->GetComponentLocation() + OwnerPlayer->GetFirstPersonCameraComponent()->GetComponentRotation().Vector() * 50000.0f,  //StartLocation + OwnerCharacter->GetHeadRotation().Vector() * 50000.0f,
+			ECollisionChannel::ECC_Visibility,
+			CollisionQueryParams,
+			CollisionResponseParams
+		);
+	}
+	else
+	{
+		GetWorld()->LineTraceSingleByChannel(
+			Hit,
+			StartLocation,
+			StartLocation + OwnerCharacter->GetMesh()->GetSocketRotation(Socket).Vector() * 50000.0f,  //StartLocation + OwnerCharacter->GetHeadRotation().Vector() * 50000.0f,
+			ECollisionChannel::ECC_Visibility,
+			CollisionQueryParams,
+			CollisionResponseParams
+		);
+
+	}
+
 	if (Hit.bBlockingHit)
 	{
 		GEngine->AddOnScreenDebugMessage(2, 1.0f, FColor::Blue, FString::Printf(TEXT("LineTrace Hit with %s"), *Hit.Actor.Get()->GetName()));
@@ -92,9 +114,19 @@ void ACodeFPS_Weapon_Shooting_Base::Server_Attack_Implementation(ACodeFPS_Charac
 		FActorSpawnParameters spawnParameters;
 
 		spawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		FRotator AtTargetRotation = UKismetMathLibrary::FindLookAtRotation(WeaponBarrel->GetComponentLocation(), GetTraceHitLocation());
-		ACodeFPS_Proj_Base* bullet = GetWorld()->SpawnActor<ACodeFPS_Proj_Base>(bulletClass, WeaponBarrel->GetComponentLocation(), AtTargetRotation, spawnParameters);
+		ACodeFPS_Proj_Base* bullet;
+		if (OwnerCharacter->IsA(ACodeFPS_Char_Player::StaticClass()))
+		{
+			FRotator AtTargetRotation = UKismetMathLibrary::FindLookAtRotation(WeaponBarrel->GetComponentLocation(), GetTraceHitLocation(HumanoidHeadSocket));
+			 bullet = GetWorld()->SpawnActor<ACodeFPS_Proj_Base>(bulletClass, WeaponBarrel->GetComponentLocation(), AtTargetRotation, spawnParameters);  // Correct Animation needed for Char
+		}
+		else
+		{
+			bullet = GetWorld()->SpawnActor<ACodeFPS_Proj_Base>(bulletClass, WeaponBarrel->GetComponentLocation(), WeaponBarrel->GetComponentRotation(), spawnParameters);  // Correct Animation needed for Char
+		}
+		
 		bullet->SetShooter(Attacker);
+		bullet->SetDamage(Damage);
 		AmmoInClipCurrent--;
 		Multicast_Attack();
 	}

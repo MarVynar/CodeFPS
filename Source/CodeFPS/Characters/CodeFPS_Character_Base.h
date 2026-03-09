@@ -6,6 +6,9 @@
 #include "GameFramework/Character.h"
 #include "../Interfaces/Interface_Interactive.h"
 #include "Engine/DataTable.h"
+#include "Components/BoxComponent.h"
+//#include "../Components/AbilityComponent.h"
+#include "../Actors/Abilities/CodeFPS_Ability_Base.h"
 #include "CodeFPS_Character_Base.generated.h"
 
 class UCharacterMovementComponent;
@@ -24,6 +27,8 @@ public:
 		UAnimMontage* AttackMontage;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
 		USoundBase* AttackSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
+		USoundBase* AttackHitSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)//, meta = (AllowPrivateAccess = "true"))
 		TSubclassOf<UDamageType> DmgTypeClass;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
@@ -32,26 +37,9 @@ public:
 		FVector HitFeedback;
 };
 
-USTRUCT(BlueprintType)
-struct FAbilityInfo : public FTableRowBase
-{
-	GENERATED_USTRUCT_BODY()
-
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AbilityParameters) // EditAnywhere, BlueprintReadWrite, Category = AttackParameters
-		float AbilityRange;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AbilityParameters)
-		UAnimMontage* AbilityMontage;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AbilityParameters)
-		USoundBase* AbilitySound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AbilityParameters)
-		float RequiredMana;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AbilityParameters)
-		float RequiredStamina;
-};
-
-
+UDELEGATE(BlueprintCallable) //BlueprintAuthorityOnly
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FEventOnAttackEnded, FAttackInfo, AttackInfo);
+UDELEGATE()
 DECLARE_DYNAMIC_DELEGATE_OneParam(FEventOnAttackEnd, FAttackInfo, AttackInfo);
 
 template <typename T>
@@ -70,13 +58,17 @@ enum class EMovementType : uint8
 	Crouch
 };
 
+
+
 UCLASS()
 class CODEFPS_API ACodeFPS_Character_Base : public ACharacter //, public IInterface_Interactive
 {
 	GENERATED_BODY()
 
 	UFUNCTION(Server, Reliable)
-	void Server_TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
+		void Server_TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
+	UFUNCTION(Server, Reliable)
+		void Server_UpdateDamageAmplifier(float DamageAmpModification, bool Amplify);
 
 	virtual void Falling() override;
 	virtual void Landed(const FHitResult& Hit) override;
@@ -88,6 +80,9 @@ public:
 	ACodeFPS_Character_Base();
 
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+
+	UFUNCTION(BlueprintCallable)
+		void UpdateDamageAmplifier(float DamageAmpModification, bool Amplify);
 
 protected:
 	virtual void BeginPlay() override;
@@ -110,6 +105,10 @@ protected:
 	UFUNCTION()
 		bool CheckAbilityRequirements(FAbilityInfo Ability);
 
+//	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Abilities) 
+//		UAbilityComponent* AbilityComponent;
+
+
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = Health)
 		float HealthPoints;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Health)
@@ -127,6 +126,9 @@ protected:
 		class UAnimMontage* OnMediumDamageMontage;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animations)
 		class UAnimMontage* OnHeavyDamageMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animations)
+		UAnimMontage* OnSpawnMontage;
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Audio)
 		class USoundBase* OnDeathSound;
@@ -191,8 +193,14 @@ protected:
 	FAttackInfo AttackInfoCurrent;
 	FAbilityInfo AbilityInfoCurrent;
 
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite, Category = Amplifiers)
+	float DamageAmp;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	bool IsAttacking = false; // TEmporary, replace with Delegates
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Components")
+		UBoxComponent* InteractionCollision;
 
 public:
 	virtual void Tick(float DeltaTime) override;
@@ -210,24 +218,42 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 		void Die(bool FatalDamage);
 
+	UFUNCTION(Server, Reliable)
+		void Server_OnDeathAnimEnded();
+
+	UFUNCTION(NetMulticast, Reliable)
+		void Multicast_OnDeathAnimEnded();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+		void OnDeathAnimEnded();
+
 	UFUNCTION()
 		virtual void Heal(int AddHealth);
 
 	UFUNCTION(Server, Reliable)
 		void Server_PlayAnimation(UAnimMontage* Montage);
-
 	UFUNCTION(NetMulticast, Reliable)
 		void Multicast_PlayAnimation(UAnimMontage* Montage);
+
 	UFUNCTION(Server, Reliable)
 		void Server_PlaySound(USoundBase* Sound); // Into separate component?
-
 	UFUNCTION(NetMulticast, Reliable)
 		void Multicast_PlaySound(USoundBase* Sound);
+	UFUNCTION(Server, Reliable)
+		void Server_PlaySoundAtLocation(USoundBase* Sound, FVector Location); // Into separate component?
+	UFUNCTION(NetMulticast, Reliable)
+		void Multicast_PlaySoundAtLocation(USoundBase* Sound, FVector Location);
 
 	UFUNCTION(BlueprintCallable)
 		FText GetFaction();
 	UFUNCTION(BlueprintCallable)
 		bool AnotherCharacterFromSameFaction(ACodeFPS_Character_Base* Another);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+		void OnInteractionCollisionBegin(UPrimitiveComponent* overlappedComponent, AActor* otherActor, UPrimitiveComponent* otherComp, int otherBodyIndex, bool fromSweep, const FHitResult& sweepResult);
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+		void OnInteractionCollisionEnd(UPrimitiveComponent* overlappedComponent, AActor* otherActor, UPrimitiveComponent* otherComp, int otherBodyIndex);
+
 
 	virtual void MoveForward(float Value);
 
@@ -261,6 +287,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	virtual	void StopMovementEnd();
 
+	UFUNCTION(BlueprintCallable)
+	void SetMovementType(EMovementType NewMovementType);
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable) // BlueprintImplementableEvent BlueprintNativeEvent
 	void Dash();
 
@@ -276,22 +305,32 @@ public:
 	UFUNCTION(BlueprintCallable)
 	virtual void OnAttackEnd();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FEventOnAttackEnded EventOnAttackEnded;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) //UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FEventOnAttackEnd EventOnAttackEnd;
 
+	//UFUNCTION(BlueprintCallable)
+	//	virtual void UseAbility (FAbilityInfo AbilityInfo);
 	UFUNCTION(BlueprintCallable)
-		virtual void UseAbility (FAbilityInfo AbilityInfo);
+		virtual void UseAbility(ACodeFPS_Ability_Base* Ability);
 	UFUNCTION(BlueprintCallable)
 		virtual void OnAbilityBegin();
 	UFUNCTION(BlueprintCallable)
 		virtual void OnAbilityEnd();
+	//UFUNCTION(Server, Reliable)
+	//	void Server_UseAbility();
+	UFUNCTION(Server, Reliable)
+		void Server_AbilitySpawn(TSubclassOf<class AActor> ActorClass, FVector SpawnLocation);
 
 	UFUNCTION(BlueprintCallable)
 	virtual void OnFire();
 
 	UFUNCTION(BlueprintCallable)
 		FVector GetHeadLocation();
+
+	UFUNCTION(BlueprintCallable)
+		FRotator GetHeadRotation();
 
 	UFUNCTION()
 	virtual void Interact();

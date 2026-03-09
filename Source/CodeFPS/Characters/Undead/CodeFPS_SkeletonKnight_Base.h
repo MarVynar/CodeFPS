@@ -7,13 +7,18 @@
 #include "../../../CodeFPS/Components/AIDecisionParametersComponent.h"
 #include "CodeFPS_SkeletonKnight_Base.generated.h"
 
+
+UDELEGATE(BlueprintAuthorityOnly) //BlueprintAuthorityOnly  (BlueprintCallable)
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FEventOnWarcryAnimEnded);
+
 UCLASS()
 class CODEFPS_API ACodeFPS_SkeletonKnight_Base : public ACodeFPS_Character_Base
 {
 	GENERATED_BODY()
 
 protected:
-
+	virtual void BeginPlay() override;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Mesh)
 		UBoxComponent* ShieldCollision;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Mesh)
@@ -21,6 +26,8 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
 		UAnimMontage* BlockMontage;
+
+	TArray<AActor*> HitTargets; //AActor? ACodeFPS_Character_Base*
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
 		FAttackInfo AttackSwing;
@@ -31,15 +38,18 @@ protected:
 
 	UAIDecisionParametersComponent* DecisionComponent;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Abilities)
 	FAbilityInfo AbilityBlock;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Abilities)
+	FAbilityInfo AbilityWarcry;
 
 	void OnAttackBegin() override;
 
 	void OnAttackEnd() override;
 
-	void OnAbilityBegin() override;
+	//void OnAbilityBegin() override;
 
-	void OnAbilityEnd() override;
+	//void OnAbilityEnd() override;
 
 	bool IsBlocking;
 
@@ -47,6 +57,8 @@ protected:
 	void OnShieldHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	UFUNCTION()
 	void OnWeaponHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION()
+	void OnWeaponEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	UFUNCTION(Server, Reliable)
 		void Server_OnShieldHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -65,4 +77,7 @@ public:
 	//	void BlockEnd();
 	UFUNCTION(BlueprintCallable)
 		void Warcry();
+
+	UPROPERTY(BlueprintAssignable)
+	FEventOnWarcryAnimEnded EventOnWarcryAnimEnded;
 };

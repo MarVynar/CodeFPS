@@ -3,19 +3,19 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "../CodeFPS_Character_Base.h"
-#include "../../../CodeFPS/Components/AIDecisionParametersComponent.h"
-#include "CodeFPS_Ghoul_Base.generated.h"
+#include "../CodeFPS_Char_Humanoid_Base.h"
+#include "../../../../CodeFPS/Components/AIDecisionParametersComponent.h"
+#include "../../../../CodeFPS/Components/AbominationComponent.h"
+#include "CodeFPS_Ab_Grunt_Base.generated.h"
 
-//UDELEGATE(BlueprintAuthorityOnly) //BlueprintAuthorityOnly  (BlueprintCallable)
-//DECLARE_DYNAMIC_MULTICAST_DELEGATE(FEventOnWarcryAnimEnded);
-
-
+/**
+ * 
+ */
 UCLASS()
-class CODEFPS_API ACodeFPS_Ghoul_Base : public ACodeFPS_Character_Base
+class CODEFPS_API ACodeFPS_Ab_Grunt_Base : public ACodeFPS_Char_Humanoid_Base
 {
 	GENERATED_BODY()
-	
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -24,25 +24,29 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Mesh)
 		UBoxComponent* RightHandCollision;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
-		UAnimMontage* ShoutMontage;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
+	//	UAnimMontage* ShoutMontage;
 
-	TArray<AActor*> HitTargetsRight; 
+	TArray<AActor*> HitTargetsRight;
 	TArray<AActor*> HitTargetsLeft;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
-		FAttackInfo AttackRight;
+		FAttackInfo AttackRSwordSwing;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
-		FAttackInfo AttackLeft;
+		FAttackInfo AttackRSwordWhirl;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
-		FAttackInfo AttackBoth;
+		FAttackInfo AttackKick;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
+		FAttackInfo AttackLBlunt;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttackParameters)
+		FAttackInfo AttackLShoot;
 
 	UAIDecisionParametersComponent* DecisionComponent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Abilities)
-		FAbilityInfo AbilityShout;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Abilities)
-		bool IsEating;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Abilities)
+	//	FAbilityInfo AbilityShout;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Abilities)
+	//	bool IsEating;
 
 	void OnAttackBegin() override;
 
@@ -69,18 +73,21 @@ protected:
 	UFUNCTION(Server, Reliable)
 		void Server_OnLeftHandHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
-public:
-	ACodeFPS_Ghoul_Base();
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Equipment)
+		UAbominationComponent* AbominationComponent;
 
-//	UFUNCTION(BlueprintCallable)
-//		void Eat();
+public:
+	ACodeFPS_Ab_Grunt_Base();
+
+	//	UFUNCTION(BlueprintCallable)
+	/*/		void Eat();
 	UFUNCTION(BlueprintCallable)
 		void EatStart();
 	UFUNCTION(BlueprintCallable)
 		void EatEnd();
 	UFUNCTION(BlueprintCallable)
 		void Shout();
-
-//	UPROPERTY(BlueprintAssignable)
-//		FEventOnWarcryAnimEnded EventOnWarcryAnimEnded;
+		/*/
+	//	UPROPERTY(BlueprintAssignable)
+	//		FEventOnWarcryAnimEnded EventOnWarcryAnimEnded;
 };
